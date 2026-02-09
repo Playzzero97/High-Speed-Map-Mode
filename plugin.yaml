@@ -1,0 +1,6 @@
+name: "[Experimental] High-Speed Map Mode"
+overview: "This overrides the steering points calculation to allow for higher speeds."
+description: 
+image_url: ""
+version: "1.0.0"
+author: "Playzzero97"
