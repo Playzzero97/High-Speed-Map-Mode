@@ -5,5 +5,5 @@ description: |
 
   Note: This plugin will only ever work on the Python version of ETS2LA, simply because C# probably will not need it nor will I touch that part of the C# rewrite
 image_url: ""
-version: "1.0.0"
+version: "1.0.1"
 author: "Playzzero97"

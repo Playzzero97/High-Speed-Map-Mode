@@ -26,7 +26,7 @@ class Plugin(ETS2LAPlugin):
 
     description = PluginDescription(
         name="[Experimental] High-Speed Map Mode",
-        version="1.0.0",
+        version="1.0.1",
         description="This overrides the steering points calculation to allow for higher speeds.",
         modules=["Traffic", "TruckSimAPI", "SDKController"],
         listen=["*.py"],
@@ -51,6 +51,10 @@ class Plugin(ETS2LAPlugin):
         steering.SENSITIVITY = 1.2
         self.api = self.modules.TruckSimAPI
 
+        self._forward = np.zeros(2)
+        self._to_road = np.zeros(2)
+        self._steering_cache = []
+
 
     def override_map_run(self):
         import types
@@ -59,9 +63,10 @@ class Plugin(ETS2LAPlugin):
 
         plugins_dict = getattr(main, "plugins", None)
         if plugins_dict:
-            for p in plugins_dict.values():
-                if isinstance(p, main.Plugin):
-                    p.run = types.MethodType(self.newrun, p)
+          for p in plugins_dict.values():
+            if isinstance(p, main.Plugin):
+                p.run = types.MethodType(self.newrun, p)
+
 
 
     def newrun(self, *args, **kwargs):
@@ -139,7 +144,12 @@ class Plugin(ETS2LAPlugin):
             self.last_external_map_update = now
 
         if data.route_points:
-            self.tags.steering_points = [p.tuple() for p in data.route_points]
+            self._steering_cache.clear()
+            if data.route_points:
+                self._steering_cache.extend(p.tuple() for p in data.route_points)
+
+            self.tags.steering_points = self._steering_cache
+
         else:
             self.tags.steering_points = []
 
@@ -187,16 +197,27 @@ class Plugin(ETS2LAPlugin):
                             road.points, key=lambda p: p.distance_to(truck)
                         ) - truck
 
-                        forward = np.array(
-                            [-math.sin(data.truck_rotation), -math.cos(data.truck_rotation)]
-                        )
-                        to_road = np.array(point.tuple(xz=True))
+                        self._forward[0] = -math.sin(data.truck_rotation)
+                        self._forward[1] = -math.cos(data.truck_rotation)
+                        self._to_road[:] = point.tuple(xz=True)
 
-                        forward /= np.linalg.norm(forward)
-                        to_road /= np.linalg.norm(to_road)
+                        f_norm = math.hypot(self._forward[0], self._forward[1])
+                        r_norm = math.hypot(self._to_road[0], self._to_road[1])
+
+
+                        if f_norm != 0:
+                            self._forward /= f_norm
+                        if r_norm != 0:
+                            self._to_road /= r_norm
 
                         self.tags.closest_road_angle = np.degrees(
-                            np.arccos(np.clip(np.dot(forward, to_road), -1.0, 1.0))
+                            np.arccos(
+                                np.clip(
+                                    np.dot(self._forward, self._to_road),
+                                    -1.0,
+                                    1.0,
+                                )
+                            )
                         )
                 else:
                     self.tags.closest_road_distance = 0
@@ -210,4 +231,11 @@ class Plugin(ETS2LAPlugin):
 
 
     def run(self): 
+
         self.override_map_run()
+
+        self.notify("Map has been overriden")
+        time.sleep(1)
+        
+        print(main.Plugin.run)
+        self.terminate()
