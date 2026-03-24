@@ -238,4 +238,6 @@ class Plugin(ETS2LAPlugin):
         time.sleep(1)
         
         print(main.Plugin.run)
+
+        print("Map has been successfully overridden. This plugin will now disable itself to prevent taking too many resources.")
         self.terminate()
